@@ -280,3 +280,54 @@ std::pair<Integer, Integer> CryptoDriver::EG_generate() {
   Integer pk = a_exp_b_mod_c(DL_G, sk, DL_P);
   return std::make_pair(sk, pk);
 }
+
+/**
+ * @brief Generates a SHA-256 hash of msg.
+ */
+std::string CryptoDriver::hash(std::string msg) {
+  SHA256 hash;
+  std::string encodedHex;
+  HexEncoder encoder(new StringSink(encodedHex));
+
+  // Compute hash
+  StringSource(msg, true, new HashFilter(hash, new StringSink(encodedHex)));
+  return encodedHex;
+}
+
+// Kyber implementation modified to work with ElGamal
+// from https://cryptosith.org/papers/kyber-20170627.pdf
+
+void CryptoDriver::split_hash_three(std::string h, SecByteBlock &i1, SecByteBlock &i2, SecByteBlock &i3) {
+  int sublen = h.length()/3;
+  i1 = string_to_byteblock(h.substr(0, sublen));
+  i2 = string_to_byteblock(h.substr(sublen, sublen*2));
+  i2 = string_to_byteblock(h.substr(sublen*2, sublen*3));
+}
+
+std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock> CryptoDriver::encaps(SecByteBlock pk) {
+  AutoSeededRandomPool rng;
+  SecByteBlock m_bytes(256/8); // 256 bits
+  rng.GenerateBlock(m_bytes, m_bytes.size());
+  std::string pk_str = byteblock_to_string(pk);
+  std::string m_str = byteblock_to_string(m_bytes);
+  std::string Khrd = hash(pk_str + m_str); // 256 bits
+  SecByteBlock K_hat;
+  SecByteBlock r;
+  SecByteBlock d;
+  split_hash_three(Khrd, K_hat, r, d);
+  std::string K_hat_str = byteblock_to_string(K_hat);
+  std::pair<Integer, Integer> uv = EG_encrypt(byteblock_to_integer(pk),
+                                byteblock_to_integer(m_bytes),
+                                std::optional<Integer>{byteblock_to_integer(r)});
+  std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c = std::make_tuple(
+    integer_to_byteblock(uv.first),
+    integer_to_byteblock(uv.second),
+    d
+  );
+  std::string c_str = byteblock_to_string(std::get<0>(c)) +
+                        byteblock_to_string(std::get<1>(c)) +
+                        byteblock_to_string(std::get<2>(c));
+  std::string K_str = hash(K_hat_str + c_str);
+  SecByteBlock K = string_to_byteblock(K_str);
+  return std::make_pair(c, K);
+}

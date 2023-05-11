@@ -42,4 +42,9 @@ public:
   SecByteBlock HMAC_generate_key(const SecByteBlock &DH_shared_key);
   std::string HMAC_generate(SecByteBlock key, std::string ciphertext);
   bool HMAC_verify(SecByteBlock key, std::string ciphertext, std::string hmac);
+
+  std::pair<Integer, Integer>
+  EG_encrypt(Integer pk, Integer m, std::optional<Integer> rand);
+  Integer EG_decrypt(Integer sk, std::pair<Integer, Integer> c);
+  std::pair<Integer, Integer> EG_generate();
 };

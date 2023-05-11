@@ -1,6 +1,7 @@
 #include <stdexcept>
 
 #include "../../include-shared/util.hpp"
+#include "../../include-shared/constants.hpp"
 #include "../../include/drivers/crypto_driver.hpp"
 
 using namespace CryptoPP;
@@ -237,4 +238,45 @@ bool CryptoDriver::HMAC_verify(SecByteBlock key, std::string ciphertext,
   } catch (const CryptoPP::Exception &e) {
     return false;
   }
+}
+
+/*
+ * With public key pk, encrypt m.
+ */
+std::pair<Integer, Integer>
+CryptoDriver::EG_encrypt(Integer pk, Integer m, std::optional<Integer> rand) {
+  Integer y;
+  if (rand.has_value()) {
+    y = rand.value();
+  } else {
+    AutoSeededRandomPool rng;
+    y = Integer(rng, Integer::One(), DL_P);
+  }
+  Integer c1 = a_exp_b_mod_c(DL_G, y, DL_P);
+  Integer c2 = m * a_exp_b_mod_c(pk, y, DL_P);
+  return std::make_pair(c1, c2);
+}
+
+/*
+ * With private key sk, decrypt (c1, c2)
+ */
+Integer CryptoDriver::EG_decrypt(Integer sk, std::pair<Integer, Integer> c) {
+  Integer m;
+  Integer c1 = c.first;
+  Integer c2 = c.second;
+  m = (c2 * EuclideanMultiplicativeInverse(a_exp_b_mod_c(c1, sk, DL_P), DL_P)) % DL_P;
+  return m;
+}
+
+/**
+ * @brief Generates a pair of El Gamal keys. This function should:
+ * 1) Generate a random `a` value using an CryptoPP::AutoSeededRandomPool
+ * 2) Exponentiate the base DL_G to get the public value, 
+ *    then return (private key, public key)
+ */
+std::pair<Integer, Integer> CryptoDriver::EG_generate() {
+  AutoSeededRandomPool rng;
+  Integer sk = Integer(rng, Integer::Zero(), DL_P - 1);
+  Integer pk = a_exp_b_mod_c(DL_G, sk, DL_P);
+  return std::make_pair(sk, pk);
 }

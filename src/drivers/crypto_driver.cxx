@@ -304,12 +304,13 @@ void CryptoDriver::split_hash_three(std::string h, SecByteBlock &i1, SecByteBloc
   i2 = string_to_byteblock(h.substr(sublen*2, sublen*3));
 }
 
-std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock> CryptoDriver::encaps(SecByteBlock pk) {
+std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock>
+CryptoDriver::encaps(SecByteBlock pk) {
   AutoSeededRandomPool rng;
   SecByteBlock m_bytes(256/8); // 256 bits
   rng.GenerateBlock(m_bytes, m_bytes.size());
-  std::string pk_str = byteblock_to_string(pk);
   std::string m_str = byteblock_to_string(m_bytes);
+  std::string pk_str = byteblock_to_string(pk);
   std::string Khrd = hash(pk_str + m_str); // 256 bits
   SecByteBlock K_hat;
   SecByteBlock r;
@@ -321,13 +322,47 @@ std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock> Cr
                                 std::optional<Integer>{byteblock_to_integer(r)});
   std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c = std::make_tuple(
     integer_to_byteblock(uv.first),
-    integer_to_byteblock(uv.second),
-    d
-  );
+    integer_to_byteblock(uv.second), d);
   std::string c_str = byteblock_to_string(std::get<0>(c)) +
                         byteblock_to_string(std::get<1>(c)) +
                         byteblock_to_string(std::get<2>(c));
   std::string K_str = hash(K_hat_str + c_str);
   SecByteBlock K = string_to_byteblock(K_str);
   return std::make_pair(c, K);
+}
+
+SecByteBlock CryptoDriver::decaps(SecByteBlock sk, SecByteBlock pk,
+                                  std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c) {
+  SecByteBlock m_bytes = integer_to_byteblock(EG_decrypt(
+    byteblock_to_integer(sk),
+    std::make_pair(
+      byteblock_to_integer(std::get<0>(c)), byteblock_to_integer(std::get<1>(c)))
+  ));
+  std::string m_str = byteblock_to_string(m_bytes);
+  std::string pk_str = byteblock_to_string(pk);
+  std::string Khrd = hash(pk_str + m_str); // 256 bits
+  SecByteBlock K_hat;
+  SecByteBlock r;
+  SecByteBlock d;
+  split_hash_three(Khrd, K_hat, r, d);
+  std::string K_hat_str = byteblock_to_string(K_hat);
+  std::pair<Integer, Integer> uv = EG_encrypt(byteblock_to_integer(pk),
+                                byteblock_to_integer(m_bytes),
+                                std::optional<Integer>{byteblock_to_integer(r)});
+  SecByteBlock u = integer_to_byteblock(uv.first);
+  SecByteBlock v = integer_to_byteblock(uv.second);
+  std::string c_str = byteblock_to_string(std::get<0>(c)) +
+                      byteblock_to_string(std::get<1>(c)) +
+                      byteblock_to_string(std::get<2>(c));
+  std::string K_str;
+  if (u == std::get<0>(c) && v == std::get<1>(c) && d == std::get<2>(c)) {
+    K_str = hash(K_hat_str + c_str);
+  } else {
+    // z is a random secret seed
+    std::string z_str = byteblock_to_string(sk);
+    // return pseudo-random key
+    K_str = hash(z_str + c_str);
+  }
+  SecByteBlock K = string_to_byteblock(K_str);
+  return K;
 }

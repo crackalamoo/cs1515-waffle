@@ -28,5 +28,4 @@ void print_key_as_hex(const CryptoPP::SecByteBlock &block);
 
 // Concat ciphertext and iv.
 std::string concat_msg_fields(CryptoPP::SecByteBlock iv,
-                              CryptoPP::SecByteBlock public_value,
                               std::string ciphertext);

@@ -72,9 +72,8 @@ void print_key_as_hex(const CryptoPP::SecByteBlock &block) {
  * Concatenates the fields of a message struct for HMAC tagging.
  */
 std::string concat_msg_fields(CryptoPP::SecByteBlock iv,
-                              CryptoPP::SecByteBlock public_value,
                               std::string ciphertext) {
-  CryptoPP::SecByteBlock concated = iv + public_value;
+  CryptoPP::SecByteBlock concated = iv;
   return std::string((const char *)concated.data(), concated.size()) +
          ciphertext;
 }

@@ -39,11 +39,4 @@ private:
 
   SecByteBlock AES_key;
   SecByteBlock HMAC_key;
-
-  // DH Ratchet Fields
-  DHParams_Message DH_params;
-  bool DH_switched;
-  SecByteBlock DH_current_private_value;
-  SecByteBlock DH_current_public_value;
-  SecByteBlock DH_last_other_public_value;
 };

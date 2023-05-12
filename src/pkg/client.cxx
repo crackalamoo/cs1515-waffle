@@ -25,25 +25,11 @@ Client::Client(std::shared_ptr<NetworkDriver> network_driver,
   this->cli_driver = std::make_shared<CLIDriver>();
   this->crypto_driver = crypto_driver;
   this->network_driver = network_driver;
-  this->DH_switched = true;
 }
 
 /**
- * Generates a new DH secret and replaces the keys. This function should:
- * 1) Call DH_generate_shared_key
- * 2) Use the resulting key in AES_generate_key and HMAC_generate_key
- * 3) Update private key variables
+ * Uses a Kyber shared secret to replace the keys.
  */
-/* void Client::prepare_keys(CryptoPP::DH DH_obj,
-                          CryptoPP::SecByteBlock DH_private_value,
-                          CryptoPP::SecByteBlock DH_other_public_value) {
-  // TODO: implement me!
-  CryptoPP::SecByteBlock dh_shared_key = this->crypto_driver->DH_generate_shared_key(DH_obj, DH_private_value, DH_other_public_value);
-  this->AES_key = this->crypto_driver->AES_generate_key(dh_shared_key);
-  this->HMAC_key = this->crypto_driver->HMAC_generate_key(dh_shared_key);
-  this->DH_current_private_value = DH_private_value;
-  this->DH_last_other_public_value = DH_other_public_value;
-} */
 void Client::prepare_keys(CryptoPP::SecByteBlock K) {
   // K is the shared secret from the Kyber protocol
   this->AES_key = this->crypto_driver->AES_generate_key(K);
@@ -53,8 +39,7 @@ void Client::prepare_keys(CryptoPP::SecByteBlock K) {
 /**
  * Encrypts the given message and returns a Message struct. This function
  * should:
- * 1) Check if the DH Ratchet keys need to change; if so, update them.
- * 2) Encrypt and tag the message.
+ * 1) Encrypt and tag the message. (Ratchet is disabled for now.)
  */
 Message_Message Client::send(std::string plaintext) {
   // Grab the lock to avoid race conditions between the receive and send threads
@@ -63,40 +48,24 @@ Message_Message Client::send(std::string plaintext) {
   // TODO: implement me!
   Message_Message msg;
 
-  // disable ratchet for now
-  /* if(this->DH_switched) {
-    this->DH_switched = false;
-    std::tuple<DH, SecByteBlock, SecByteBlock> keys = this->crypto_driver->DH_initialize(this->DH_params);
-    this->prepare_keys(std::get<0>(keys), std::get<1>(keys) , this->DH_last_other_public_value);
-    this->DH_current_public_value = std::get<2>(keys);
-  } */
   std::pair<std::string, SecByteBlock> c_iv = this->crypto_driver->AES_encrypt(this->AES_key, plaintext);
   
   msg.iv = std::get<1>(c_iv);
   msg.ciphertext = std::get<0>(c_iv);
-  msg.public_value = this->DH_current_public_value;
-  msg.mac = this->crypto_driver->HMAC_generate(this->HMAC_key, concat_msg_fields(msg.iv, msg.public_value, msg.ciphertext));
+  msg.mac = this->crypto_driver->HMAC_generate(this->HMAC_key, concat_msg_fields(msg.iv, msg.ciphertext));
   return msg;
 }
 
 /**
  * Decrypts the given Message into a tuple containing the plaintext and
  * an indicator if the MAC was valid (true if valid; false otherwise).
- * 1) Check if the DH Ratchet keys need to change; if so, update them.
- * 2) Decrypt and verify the message.
+ * 1) Decrypt and verify the message. (Ratchet is disabled for now.)
  */
 std::pair<std::string, bool> Client::receive(Message_Message ciphertext) {
   // Grab the lock to avoid race conditions between the receive and send threads
   // Lock will automatically release at the end of the function.
   std::unique_lock<std::mutex> lck(this->mtx);
-  // disable ratchet for now
-  /* if(ciphertext.public_value != this->DH_last_other_public_value) {
-    std::tuple<DH, SecByteBlock, SecByteBlock> keys = this->crypto_driver->DH_initialize(this->DH_params);
-    this->DH_last_other_public_value = ciphertext.public_value;
-    this->prepare_keys(std::get<0>(keys), this->DH_current_private_value, this->DH_last_other_public_value);
-  } */
-  this->DH_switched = true;
-  return std::make_pair<std::string, bool>(this->crypto_driver->AES_decrypt(this->AES_key, ciphertext.iv, ciphertext.ciphertext), this->crypto_driver->HMAC_verify(this->HMAC_key, concat_msg_fields(ciphertext.iv, ciphertext.public_value, ciphertext.ciphertext), ciphertext.mac));
+  return std::make_pair<std::string, bool>(this->crypto_driver->AES_decrypt(this->AES_key, ciphertext.iv, ciphertext.ciphertext), this->crypto_driver->HMAC_verify(this->HMAC_key, concat_msg_fields(ciphertext.iv, ciphertext.ciphertext), ciphertext.mac));
 }
 
 /**
@@ -120,41 +89,19 @@ void Client::run(std::string command) {
 
 /**
  * Run key exchange. This function:
- * 1) Listen for or generate and send DHParams_Message depending on `command`
+ * 1) Listen for or generate and send a public key depending on `command`
  * `command` can be either "listen" or "connect"; the listener should read()
- * for params, and the connector should generate and send params.
- * 2) Initialize DH object and keys
- * 3) Send your public value
- * 4) Listen for the other party's public value
- * 5) Generate DH, AES, and HMAC keys and set local variables
+ * for the public key, and the connecter should generate and send the public
+ * key. The connector is P1 in the Kyber protocol while the listener is P2.
+ * 2) For the listener: listen for the other party's public value and encapsulate it.
+ * Send the encapsulated key to the other party.
+ * 3) For the connector: receive the encapsualted key from the other party and
+ * decapsulate it.
+ * 4) Both parties now use their shared secret to prepare AES and HMAC keys
+ * using the `prepare_keys` function.
  */
 void Client::HandleKeyExchange(std::string command) {
   // TODO: implement me!
-  
-  /* if(command == "listen") {
-    std::vector<unsigned char> dh_params = this->network_driver->read();
-    this->DH_params.deserialize(dh_params);
-  } else if (command == "connect"){
-    this->DH_params = this->crypto_driver->DH_generate_params();
-    std::vector<unsigned char> dh_params;
-    this->DH_params.serialize(dh_params);
-    this->network_driver->send(dh_params);
-  }
-
-  std::tuple<DH, SecByteBlock, SecByteBlock> keys = this->crypto_driver->DH_initialize(this->DH_params);
-
-  PublicValue_Message pvm;
-  pvm.public_value = std::get<2>(keys);
-  std::vector<unsigned char> pkey_to_send; 
-  pvm.serialize(pkey_to_send);
-
-  this->network_driver->send(pkey_to_send);
-
-  std::vector<unsigned char> other_pkey = this->network_driver->read();
-  pvm.deserialize(other_pkey);
-
-  this->prepare_keys(std::get<0>(keys),std::get<1>(keys),pvm.public_value);
-  this->DH_current_public_value = std::get<2>(keys); */
 
   if (command == "connect") {
     // P1

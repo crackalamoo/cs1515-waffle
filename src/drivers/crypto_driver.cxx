@@ -243,29 +243,30 @@ bool CryptoDriver::HMAC_verify(SecByteBlock key, std::string ciphertext,
 /*
  * With public key pk, encrypt m.
  */
-std::pair<Integer, Integer>
-CryptoDriver::EG_encrypt(Integer pk, Integer m, std::optional<Integer> rand) {
+std::pair<SecByteBlock, SecByteBlock>
+CryptoDriver::EG_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> rand) {
   Integer y;
   if (rand.has_value()) {
-    y = rand.value();
+    y = byteblock_to_integer(rand.value());
   } else {
     AutoSeededRandomPool rng;
     y = Integer(rng, Integer::One(), DL_P);
   }
-  Integer c1 = a_exp_b_mod_c(DL_G, y, DL_P);
-  Integer c2 = m * a_exp_b_mod_c(pk, y, DL_P);
+  SecByteBlock c1 = integer_to_byteblock(a_exp_b_mod_c(DL_G, y, DL_P));
+  SecByteBlock c2 = integer_to_byteblock(byteblock_to_integer(m) * a_exp_b_mod_c(byteblock_to_integer(pk), y, DL_P));
   return std::make_pair(c1, c2);
 }
 
 /*
  * With private key sk, decrypt (c1, c2)
  */
-Integer CryptoDriver::EG_decrypt(Integer sk, std::pair<Integer, Integer> c) {
+SecByteBlock CryptoDriver::EG_decrypt(SecByteBlock sk, std::pair<SecByteBlock, SecByteBlock> c) {
   Integer m;
-  Integer c1 = c.first;
-  Integer c2 = c.second;
-  m = (c2 * EuclideanMultiplicativeInverse(a_exp_b_mod_c(c1, sk, DL_P), DL_P)) % DL_P;
-  return m;
+  Integer sk_int = byteblock_to_integer(sk);
+  Integer c1 = byteblock_to_integer(c.first);
+  Integer c2 = byteblock_to_integer(c.second);
+  m = (c2 * EuclideanMultiplicativeInverse(a_exp_b_mod_c(c1, sk_int, DL_P), DL_P)) % DL_P;
+  return integer_to_byteblock(m);
 }
 
 /**
@@ -274,10 +275,11 @@ Integer CryptoDriver::EG_decrypt(Integer sk, std::pair<Integer, Integer> c) {
  * 2) Exponentiate the base DL_G to get the public value, 
  *    then return (private key, public key)
  */
-std::pair<Integer, Integer> CryptoDriver::EG_generate() {
+std::pair<SecByteBlock, SecByteBlock> CryptoDriver::EG_generate() {
   AutoSeededRandomPool rng;
-  Integer sk = Integer(rng, Integer::Zero(), DL_P - 1);
-  Integer pk = a_exp_b_mod_c(DL_G, sk, DL_P);
+  Integer sk_int = Integer(rng, Integer::Zero(), DL_P - 1);
+  SecByteBlock sk = integer_to_byteblock(sk_int);
+  SecByteBlock pk = integer_to_byteblock(a_exp_b_mod_c(DL_G, sk_int, DL_P));
   return std::make_pair(sk, pk);
 }
 
@@ -317,12 +319,8 @@ CryptoDriver::encaps(SecByteBlock pk) {
   SecByteBlock d;
   split_hash_three(Khrd, K_hat, r, d);
   std::string K_hat_str = byteblock_to_string(K_hat);
-  std::pair<Integer, Integer> uv = EG_encrypt(byteblock_to_integer(pk),
-                                byteblock_to_integer(m_bytes),
-                                std::optional<Integer>{byteblock_to_integer(r)});
-  std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c = std::make_tuple(
-    integer_to_byteblock(uv.first),
-    integer_to_byteblock(uv.second), d);
+  auto uv = EG_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
+  auto c = std::make_tuple(uv.first, uv.second, d);
   std::string c_str = byteblock_to_string(std::get<0>(c)) +
                         byteblock_to_string(std::get<1>(c)) +
                         byteblock_to_string(std::get<2>(c));
@@ -333,11 +331,8 @@ CryptoDriver::encaps(SecByteBlock pk) {
 
 SecByteBlock CryptoDriver::decaps(SecByteBlock sk, SecByteBlock pk,
                                   std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c) {
-  SecByteBlock m_bytes = integer_to_byteblock(EG_decrypt(
-    byteblock_to_integer(sk),
-    std::make_pair(
-      byteblock_to_integer(std::get<0>(c)), byteblock_to_integer(std::get<1>(c)))
-  ));
+  SecByteBlock m_bytes = EG_decrypt(
+    sk, std::make_pair(std::get<0>(c), std::get<1>(c)) );
   std::string m_str = byteblock_to_string(m_bytes);
   std::string pk_str = byteblock_to_string(pk);
   std::string Khrd = hash(pk_str + m_str); // 256 bits
@@ -346,11 +341,9 @@ SecByteBlock CryptoDriver::decaps(SecByteBlock sk, SecByteBlock pk,
   SecByteBlock d;
   split_hash_three(Khrd, K_hat, r, d);
   std::string K_hat_str = byteblock_to_string(K_hat);
-  std::pair<Integer, Integer> uv = EG_encrypt(byteblock_to_integer(pk),
-                                byteblock_to_integer(m_bytes),
-                                std::optional<Integer>{byteblock_to_integer(r)});
-  SecByteBlock u = integer_to_byteblock(uv.first);
-  SecByteBlock v = integer_to_byteblock(uv.second);
+  auto uv = EG_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
+  SecByteBlock u = uv.first;
+  SecByteBlock v = uv.second;
   std::string c_str = byteblock_to_string(std::get<0>(c)) +
                       byteblock_to_string(std::get<1>(c)) +
                       byteblock_to_string(std::get<2>(c));

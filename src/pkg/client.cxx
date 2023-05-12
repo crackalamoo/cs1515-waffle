@@ -34,7 +34,7 @@ Client::Client(std::shared_ptr<NetworkDriver> network_driver,
  * 2) Use the resulting key in AES_generate_key and HMAC_generate_key
  * 3) Update private key variables
  */
-void Client::prepare_keys(CryptoPP::DH DH_obj,
+/* void Client::prepare_keys(CryptoPP::DH DH_obj,
                           CryptoPP::SecByteBlock DH_private_value,
                           CryptoPP::SecByteBlock DH_other_public_value) {
   // TODO: implement me!
@@ -43,6 +43,11 @@ void Client::prepare_keys(CryptoPP::DH DH_obj,
   this->HMAC_key = this->crypto_driver->HMAC_generate_key(dh_shared_key);
   this->DH_current_private_value = DH_private_value;
   this->DH_last_other_public_value = DH_other_public_value;
+} */
+void Client::prepare_keys(CryptoPP::SecByteBlock K) {
+  // K is the shared secret from the Kyber protocol
+  this->AES_key = this->crypto_driver->AES_generate_key(K);
+  this->HMAC_key = this->crypto_driver->HMAC_generate_key(K);
 }
 
 /**
@@ -58,12 +63,13 @@ Message_Message Client::send(std::string plaintext) {
   // TODO: implement me!
   Message_Message msg;
 
-  if(this->DH_switched) {
+  // disable ratchet for now
+  /* if(this->DH_switched) {
     this->DH_switched = false;
     std::tuple<DH, SecByteBlock, SecByteBlock> keys = this->crypto_driver->DH_initialize(this->DH_params);
     this->prepare_keys(std::get<0>(keys), std::get<1>(keys) , this->DH_last_other_public_value);
     this->DH_current_public_value = std::get<2>(keys);
-  }
+  } */
   std::pair<std::string, SecByteBlock> c_iv = this->crypto_driver->AES_encrypt(this->AES_key, plaintext);
   
   msg.iv = std::get<1>(c_iv);
@@ -83,11 +89,12 @@ std::pair<std::string, bool> Client::receive(Message_Message ciphertext) {
   // Grab the lock to avoid race conditions between the receive and send threads
   // Lock will automatically release at the end of the function.
   std::unique_lock<std::mutex> lck(this->mtx);
-  if(ciphertext.public_value != this->DH_last_other_public_value) {
+  // disable ratchet for now
+  /* if(ciphertext.public_value != this->DH_last_other_public_value) {
     std::tuple<DH, SecByteBlock, SecByteBlock> keys = this->crypto_driver->DH_initialize(this->DH_params);
     this->DH_last_other_public_value = ciphertext.public_value;
     this->prepare_keys(std::get<0>(keys), this->DH_current_private_value, this->DH_last_other_public_value);
-  }
+  } */
   this->DH_switched = true;
   return std::make_pair<std::string, bool>(this->crypto_driver->AES_decrypt(this->AES_key, ciphertext.iv, ciphertext.ciphertext), this->crypto_driver->HMAC_verify(this->HMAC_key, concat_msg_fields(ciphertext.iv, ciphertext.public_value, ciphertext.ciphertext), ciphertext.mac));
 }
@@ -123,7 +130,8 @@ void Client::run(std::string command) {
  */
 void Client::HandleKeyExchange(std::string command) {
   // TODO: implement me!
-  if(command == "listen") {
+  
+  /* if(command == "listen") {
     std::vector<unsigned char> dh_params = this->network_driver->read();
     this->DH_params.deserialize(dh_params);
   } else if (command == "connect"){
@@ -146,7 +154,52 @@ void Client::HandleKeyExchange(std::string command) {
   pvm.deserialize(other_pkey);
 
   this->prepare_keys(std::get<0>(keys),std::get<1>(keys),pvm.public_value);
-  this->DH_current_public_value = std::get<2>(keys);
+  this->DH_current_public_value = std::get<2>(keys); */
+
+  if (command == "connect") {
+    // P1
+    auto keys = this->crypto_driver->EG_generate();
+    auto sk = keys.first;
+    auto pk = keys.second;
+
+    PublicValue_Message pvm;
+    pvm.public_value = pk;
+    std::vector<unsigned char> pkey_to_send;
+    pvm.serialize(pkey_to_send);
+
+    this->network_driver->send(pkey_to_send);
+
+
+    // P1 again
+    Encapsulation_Message em;
+    std::vector<unsigned char> c_to_get = this->network_driver->read();
+    em.deserialize(c_to_get);
+
+    auto c = std::make_tuple(em.u, em.v, em.d);
+    auto K = this->crypto_driver->decaps(sk, pk, c);
+
+    this->prepare_keys(K);
+  } else if (command == "listen") {
+    // P2
+    PublicValue_Message pvm;
+    std::vector<unsigned char> other_pkey = this->network_driver->read();
+    pvm.deserialize(other_pkey);
+
+    auto encaps = this->crypto_driver->encaps(pvm.public_value);
+    auto c = encaps.first;
+    auto K = encaps.second;
+
+    Encapsulation_Message em;
+    em.u = std::get<0>(c);
+    em.v = std::get<1>(c);
+    em.d = std::get<2>(c);
+    std::vector<unsigned char> c_to_send;
+    em.serialize(c_to_send);
+
+    this->network_driver->send(c_to_send);
+
+    this->prepare_keys(K);
+  }
 }
 
 /**

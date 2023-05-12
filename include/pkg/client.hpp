@@ -21,9 +21,7 @@ class Client {
 public:
   Client(std::shared_ptr<NetworkDriver> network_driver,
          std::shared_ptr<CryptoDriver> crypto_driver);
-  void prepare_keys(CryptoPP::DH DH_obj,
-                    CryptoPP::SecByteBlock DH_private_value,
-                    CryptoPP::SecByteBlock DH_other_public_value);
+  void prepare_keys(CryptoPP::SecByteBlock K);
   Message_Message send(std::string plaintext);
   std::pair<std::string, bool> receive(Message_Message ciphertext);
   void run(std::string command);

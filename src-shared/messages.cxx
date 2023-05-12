@@ -159,3 +159,40 @@ int Message_Message::deserialize(std::vector<unsigned char> &data) {
   n += get_string(&this->mac, data, n);
   return n;
 }
+
+/**
+ * Serialize Message.
+ */
+void Encapsulation_Message::serialize(std::vector<unsigned char> &data) {
+  // Add message type.
+  data.push_back((char)MessageType::Encapsulation);
+
+  // Get fields.
+  std::string u = byteblock_to_string(this->u);
+  put_string(u, data);
+  std::string v = byteblock_to_string(this->v);
+  put_string(v, data);
+  std::string d = byteblock_to_string(this->d);
+  put_string(d, data);
+}
+
+/**
+ * Deserialize Message.
+ */
+int Encapsulation_Message::deserialize(std::vector<unsigned char> &data) {
+  // Check correct message type.
+  assert(get_message_type(data) == MessageType::Encapsulation);
+
+  // Get fields.
+  int n = 1;
+  std::string u;
+  n += get_string(&u, data, n);
+  this->u = string_to_byteblock(u);
+  std::string v;
+  n += get_string(&v, data, n);
+  this->v = string_to_byteblock(v);
+  std::string d;
+  n += get_string(&d, data, n);
+  this->d = string_to_byteblock(d);
+  return n;
+}

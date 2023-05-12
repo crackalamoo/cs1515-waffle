@@ -17,6 +17,7 @@ enum T {
   DHParams_Message = 0,
   PublicValue = 1,
   Message = 2,
+  Encapsulation = 3,
 };
 }
 MessageType::T get_message_type(std::vector<unsigned char> &data);
@@ -64,6 +65,27 @@ struct Message_Message : public Serializable {
   CryptoPP::SecByteBlock public_value;
   std::string ciphertext;
   std::string mac;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+// ================================================
+// KYBER MESSAGES
+// from https://cryptosith.org/papers/kyber-20170627.pdf page 6
+// ================================================
+
+/**
+ * 1) P1 sends PublicValue_Message
+ * 2) P2 encapsulates pk and sends Encapsulation_Message
+ * 3) P3 decapsulates c using sk. This does not require a new message
+ */
+
+struct Encapsulation_Message : public Serializable {
+  // c is a tuple containing (u, v, d)
+  CryptoPP::SecByteBlock u;
+  CryptoPP::SecByteBlock v;
+  CryptoPP::SecByteBlock d;
 
   void serialize(std::vector<unsigned char> &data);
   int deserialize(std::vector<unsigned char> &data);

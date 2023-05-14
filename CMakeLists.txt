@@ -32,7 +32,8 @@ set(SOURCES
   src/pkg/client.cxx
   src/drivers/crypto_driver.cxx
   src/drivers/network_driver.cxx
-  src/drivers/cli_driver.cxx)
+  src/drivers/cli_driver.cxx
+  src/drivers/ggh_driver.cxx)
 add_library(${LIBRARY_NAME} ${SOURCES})
 target_include_directories(${LIBRARY_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include-shared ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(${LIBRARY_NAME} PRIVATE ${LIBRARY_NAME_SHARED})
@@ -43,7 +44,8 @@ if ( "$ENV{CS1515_TA_MODE}" STREQUAL "on" )
     src-ta/pkg/client.cxx
     src-ta/drivers/crypto_driver.cxx
     src-ta/drivers/network_driver.cxx
-    src-ta/drivers/cli_driver.cxx)
+    src-ta/drivers/cli_driver.cxx
+    src-ta/drivers/ggh_driver.cxx)
   add_library(${LIBRARY_NAME_TA} ${SOURCES_TA})
   target_include_directories(${LIBRARY_NAME_TA} PUBLIC ${PROJECT_SOURCE_DIR}/include-shared ${PROJECT_SOURCE_DIR}/include-ta)
   target_link_libraries(${LIBRARY_NAME_TA} PRIVATE ${LIBRARY_NAME_SHARED})

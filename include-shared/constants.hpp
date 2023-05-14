@@ -3,12 +3,7 @@
 #include <crypto++/cryptlib.h>
 #include <crypto++/integer.h>
 
-//#define SALT_SIZE 16  // 128 bits 16 bytes
-//#define PEPPER_SIZE 1 // 8 bits   1 byte
-
 #define EG_KEYSIZE 1024
-//#define DSA_KEYSIZE 2048
-//#define PRG_SIZE 16
 
 // Primes from https://www.rfc-editor.org/rfc/rfc5114#page-4
 const CryptoPP::Integer DL_P =

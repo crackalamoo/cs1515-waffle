@@ -12,6 +12,7 @@
 
 #include "../../include-shared/util.hpp"
 #include "colors.hpp"
+#include "../../include/drivers/ggh_driver.hpp"
 
 /**
  * Constructor. Sets up TCP socket and starts REPL
@@ -25,6 +26,7 @@ Client::Client(std::shared_ptr<NetworkDriver> network_driver,
   this->cli_driver = std::make_shared<CLIDriver>();
   this->crypto_driver = crypto_driver;
   this->network_driver = network_driver;
+  eigen_test();
 }
 
 /**

@@ -49,3 +49,4 @@ snipped/
 # etc.
 .idea
 .vscode
+include/Eigen/*

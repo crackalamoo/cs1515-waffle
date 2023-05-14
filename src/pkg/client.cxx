@@ -26,7 +26,6 @@ Client::Client(std::shared_ptr<NetworkDriver> network_driver,
   this->cli_driver = std::make_shared<CLIDriver>();
   this->crypto_driver = crypto_driver;
   this->network_driver = network_driver;
-  eigen_test();
 }
 
 /**

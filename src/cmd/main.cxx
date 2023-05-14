@@ -6,6 +6,7 @@
 #include "../../include/drivers/crypto_driver.hpp"
 #include "../../include/drivers/network_driver.hpp"
 #include "../../include/pkg/client.hpp"
+#include "../../include/drivers/ggh_driver.hpp" // remove this later
 
 /*
  * Usage: ./signal <accept|connect> [address] [port]
@@ -13,6 +14,7 @@
  *     ./signal connect localhost 3000
  */
 int main(int argc, char *argv[]) {
+  eigentest(); // remove this later
   // Input checking.
   if (argc != 4) {
     std::cout << "Usage: " << argv[0] << " <listen|connect> [address] [port]"

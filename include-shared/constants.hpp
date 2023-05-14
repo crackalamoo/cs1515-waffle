@@ -4,6 +4,7 @@
 #include <crypto++/integer.h>
 
 #define EG_KEYSIZE 1024
+#define GGH_N 6
 
 // Primes from https://www.rfc-editor.org/rfc/rfc5114#page-4
 const CryptoPP::Integer DL_P =

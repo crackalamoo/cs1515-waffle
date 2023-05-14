@@ -71,7 +71,7 @@ struct Message_Message : public Serializable {
 };
 
 // ================================================
-// KYBER MESSAGES
+// KYBER KEY ENCAPSULATION MESSAGES
 // from https://cryptosith.org/papers/kyber-20170627.pdf page 6
 // ================================================
 

@@ -42,6 +42,8 @@ public:
   SecByteBlock EG_decrypt(SecByteBlock sk, std::pair<SecByteBlock, SecByteBlock> c);
 
   std::pair<Mat, Mat> GGH_generate();
+  SecByteBlock GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> r);
+  SecByteBlock GGH_decrypt(Mat sk, Mat pk, SecByteBlock e);
 
   std::string hash(std::string msg);
   void split_hash_three(std::string h, SecByteBlock &i1, SecByteBlock &i2, SecByteBlock &i3);

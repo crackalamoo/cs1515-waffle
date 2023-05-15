@@ -220,8 +220,31 @@ std::pair<SecByteBlock, SecByteBlock> CryptoDriver::EG_generate() {
 
 std::pair<Mat, Mat> CryptoDriver::GGH_generate() {
   GGHDriver ggh;
-  std::pair<Mat, Mat> keys = ggh.GGH_generate();
+  std::pair<Mat, Mat> keys = ggh.generate();
   return keys;
+}
+
+SecByteBlock CryptoDriver::GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> r) {
+  // use SecByteBlocks here because the pk, m, and r might come from the other party
+  GGHDriver ggh;
+  Mat pk_m = ggh.copy_to_mat(pk);
+  Mat m_v = ggh.byteblock_to_msg(m);
+  std::optional<Mat> r_v;
+  if (r.has_value()) {
+    r_v = std::optional<Mat>{ggh.byteblock_to_msg(r.value())};
+  } else {
+    r_v = std::optional<Mat>{};
+  }
+  Mat e = ggh.encrypt(pk_m, m_v, r_v);
+  return ggh.copy_to_block(e);
+}
+
+SecByteBlock CryptoDriver::GGH_decrypt(Mat sk, Mat pk, SecByteBlock e) {
+  // use Mats here because we generated the keys locally, but e came from the other party
+  GGHDriver ggh;
+  Mat e_v = ggh.copy_to_mat(e);
+  Mat m = ggh.decrypt(sk, pk, e_v);
+  return ggh.msg_to_byteblock(m, 256/8);
 }
 
 /**

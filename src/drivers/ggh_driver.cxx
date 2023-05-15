@@ -28,7 +28,7 @@ double GGHDriver::hadamard_ratio(Mat M) {
 Mat GGHDriver::gen_V() {
   Mat V = gen_random(GGH_N, GGH_N, GGH_D);
   double h = hadamard_ratio(V);
-  if (h < 0.75) {
+  if (h < 0.72) {
     return gen_V();
   }
   return V;
@@ -73,7 +73,7 @@ Mat GGHDriver::babai(Mat V, Mat w) {
   return w;
 }
 
-std::pair<Mat, Mat> GGHDriver::GGH_generate() {
+std::pair<Mat, Mat> GGHDriver::generate() {
   // key generation algorithm
   Mat sk = gen_V();
   Mat U = gen_U();
@@ -81,11 +81,19 @@ std::pair<Mat, Mat> GGHDriver::GGH_generate() {
   return std::make_pair(sk, pk);
 }
 
-Mat GGHDriver::GGH_encrypt(Mat pk, Mat m, std::optional<Mat> rand) {
+Mat GGHDriver::encrypt(Mat pk, Mat m, std::optional<Mat> rand) {
   assert(m.rows() == 1); // m is a vector
   Mat r;
   if (rand.has_value()) {
     r = rand.value();
+    for (int i = 0; i < GGH_N; i++) {
+      if (r(0,i) > GGH_DELTA) {
+        r(0,i) = std::fmod(r(0,i), GGH_DELTA);
+      } else if (r(0,i) < -GGH_DELTA) {
+        r(0,i) = std::fmod(r(0,i), GGH_DELTA);
+        r(0,i) *= -1;
+      }
+    }
   } else {
     r = gen_random(1, GGH_N, GGH_DELTA);
   }
@@ -93,7 +101,7 @@ Mat GGHDriver::GGH_encrypt(Mat pk, Mat m, std::optional<Mat> rand) {
   return e;
 }
 
-Mat GGHDriver::GGH_decrypt(Mat sk, Mat pk, Mat e) {
+Mat GGHDriver::decrypt(Mat sk, Mat pk, Mat e) {
   assert(e.rows() == 1); // e is a vector
   Mat v = babai(sk, e);
   Mat m = v*pk.inverse();
@@ -103,25 +111,31 @@ Mat GGHDriver::GGH_decrypt(Mat sk, Mat pk, Mat e) {
   return m;
 }
 
-Mat GGHDriver::byteblock_to_ggh(CryptoPP::SecByteBlock block) {
+Mat GGHDriver::byteblock_to_msg(CryptoPP::SecByteBlock block) {
   Mat res = Mat::Zero(1, GGH_N);
   size_t nbytes = block.SizeInBytes();
   std::byte bytes[nbytes];
   memcpy(bytes, block.BytePtr(), nbytes);
   int bytes_per_val = std::ceil((double)nbytes/GGH_N);
+  long long max_val = std::pow(256, bytes_per_val)/2;
   for (int i = 0; i < nbytes; i += bytes_per_val) {
-    int val = 0;
+    long val = 0;
     memcpy(&val, bytes+i, bytes_per_val);
+    if (val >= max_val)
+      val -= max_val*2;
     res(0, i/bytes_per_val) = val;
   }
   return res;
 }
 
-CryptoPP::SecByteBlock GGHDriver::ggh_to_byteblock(Mat m, size_t nbytes) {
+CryptoPP::SecByteBlock GGHDriver::msg_to_byteblock(Mat v, size_t nbytes) {
   std::byte bytes[nbytes];
   int bytes_per_val = std::ceil((double)nbytes/GGH_N);
+  int max_val = std::pow(256, bytes_per_val)/2;
   for (int i = 0; i < GGH_N; i++) {
-    int val = m(0, i);
+    int val = v(0, i);
+    if (val < 0)
+      val += max_val*2;
     memcpy(bytes + i*bytes_per_val, &val, bytes_per_val);
   }
   const unsigned char* ptr = (const unsigned char*)bytes;
@@ -130,9 +144,29 @@ CryptoPP::SecByteBlock GGHDriver::ggh_to_byteblock(Mat m, size_t nbytes) {
   return block;
 }
 
+CryptoPP::SecByteBlock GGHDriver::copy_to_block(Mat M) {
+  std::cout << "making block" << std::endl;
+  CryptoPP::SecByteBlock block(M.rows()*GGH_N*sizeof(long double));
+  memcpy(block.BytePtr(), M.data(), M.rows()*GGH_N*sizeof(long double));
+  std::cout << "made block" << std::endl;
+  return block;
+}
+Mat GGHDriver::copy_to_mat(CryptoPP::SecByteBlock block) {
+  if (block.SizeInBytes() == GGH_N*GGH_N*sizeof(long double)) {
+    Mat M(GGH_N, GGH_N);
+    memcpy(M.data(), block.BytePtr(), GGH_N*GGH_N*sizeof(long double));
+    return M;
+  } else {
+    Mat v(1, GGH_N);
+    memcpy(v.data(), block.BytePtr(), GGH_N*sizeof(long double));
+    return v;
+  }
+}
+
+
 void eigentest() {
   GGHDriver gghd;
-  std::pair<Mat, Mat> keys = gghd.GGH_generate();
+  std::pair<Mat, Mat> keys = gghd.generate();
   Mat U = gghd.gen_U();
   std::cout << "U " << U << std::endl;
   std::cout << "det " << U.determinant() << std::endl;
@@ -142,24 +176,23 @@ void eigentest() {
   rng.GenerateBlock(block, block.size());
   std::string bstr = std::string(block.begin(), block.end());
   std::cout << bstr << std::endl;
-  std::cout << gghd.byteblock_to_ggh(block) << std::endl;
   //Mat m = gghd.gen_random(1, GGH_N, 2147483648);
-  Mat m = gghd.byteblock_to_ggh(block);
-  std::cout << byteblock_to_string(gghd.ggh_to_byteblock(m, block.size())) << std::endl;
+  Mat m = gghd.byteblock_to_msg(block);
   Mat r = gghd.gen_random(1, GGH_N, GGH_DELTA);
   Mat r2 = Mat::Zero(1, GGH_N);
   std::cout << "r " << r << std::endl;
   std::cout << "r2 " << r2 << std::endl;
-  Mat enc = gghd.GGH_encrypt(keys.second, m, std::optional<Mat>{r});
-  Mat enc2 = gghd.GGH_encrypt(keys.second, m, std::optional<Mat>{r2});
+  Mat enc = gghd.encrypt(keys.second, m, std::optional<Mat>{r});
+  Mat enc2 = gghd.encrypt(keys.second, m, std::optional<Mat>{r2});
   std::cout << "sk " << keys.first << std::endl;
-  Mat dec = gghd.GGH_decrypt(keys.first, keys.second, enc);
-  Mat dec2 = gghd.GGH_decrypt(keys.first, keys.second, enc2);
+  std::cout << "sk " << gghd.copy_to_mat(gghd.copy_to_block(keys.first)) << std::endl;
+  Mat dec = gghd.decrypt(keys.first, keys.second, enc);
+  Mat dec2 = gghd.decrypt(keys.first, keys.second, enc2);
   std::cout << "m    " << m << std::endl;
   std::cout << "dec  " << dec << std::endl;
   std::cout << "dec2 " << dec2 << std::endl;
-  std::cout << "bad dec " << gghd.GGH_decrypt(keys.second, keys.second, enc) << std::endl;
-  std::cout << "bad dec2 " << gghd.GGH_decrypt(keys.second, keys.second, enc2) << std::endl;
+  std::cout << "bad dec " << gghd.decrypt(keys.second, keys.second, enc) << std::endl;
+  std::cout << "bad dec2 " << gghd.decrypt(keys.second, keys.second, enc2) << std::endl;
   std::cout << "enc " << enc << std::endl;
   std::cout << "enc2 " << enc2 << std::endl;
   std::cout << gghd.hadamard_ratio(keys.first) << std::endl;

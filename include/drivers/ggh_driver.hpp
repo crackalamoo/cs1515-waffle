@@ -15,21 +15,19 @@
 
 using namespace Eigen;
 
-#define GGH_N 16
-#define GGH_D 200
-#define GGH_DELTA 21
-
 typedef Matrix<long double, Eigen::Dynamic, Eigen::Dynamic> Mat;
 
 class GGHDriver {
 public:
   Mat gen_U();
   Mat gen_V();
-  std::pair<Mat, Mat> GGH_generate();
-  Mat GGH_encrypt(Mat pk, Mat m, std::optional<Mat> rand);
-  Mat GGH_decrypt(Mat sk, Mat pk, Mat e);
-  Mat byteblock_to_ggh(CryptoPP::SecByteBlock block);
-  CryptoPP::SecByteBlock ggh_to_byteblock(Mat m, size_t nbytes);
+  std::pair<Mat, Mat> generate();
+  Mat encrypt(Mat pk, Mat m, std::optional<Mat> rand);
+  Mat decrypt(Mat sk, Mat pk, Mat e);
+  Mat byteblock_to_msg(CryptoPP::SecByteBlock block);
+  CryptoPP::SecByteBlock msg_to_byteblock(Mat m, size_t nbytes);
+  CryptoPP::SecByteBlock copy_to_block(Mat M);
+  Mat copy_to_mat(CryptoPP::SecByteBlock block);
   Mat gen_random(int rows, int cols, int range);
   Mat babai(Mat w, Mat V);
   double hadamard_ratio(Mat M);

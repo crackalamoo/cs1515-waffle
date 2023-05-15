@@ -14,7 +14,7 @@
  *     ./signal connect localhost 3000
  */
 int main(int argc, char *argv[]) {
-  eigentest(); // remove this later
+  // eigentest();
   // Input checking.
   if (argc != 4) {
     std::cout << "Usage: " << argv[0] << " <listen|connect> [address] [port]"

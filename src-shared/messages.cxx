@@ -168,10 +168,8 @@ void Encapsulation_Message::serialize(std::vector<unsigned char> &data) {
   data.push_back((char)MessageType::Encapsulation);
 
   // Get fields.
-  std::string u = byteblock_to_string(this->u);
-  put_string(u, data);
-  std::string v = byteblock_to_string(this->v);
-  put_string(v, data);
+  std::string uv = byteblock_to_string(this->uv);
+  put_string(uv, data);
   std::string d = byteblock_to_string(this->d);
   put_string(d, data);
 }
@@ -185,12 +183,9 @@ int Encapsulation_Message::deserialize(std::vector<unsigned char> &data) {
 
   // Get fields.
   int n = 1;
-  std::string u;
-  n += get_string(&u, data, n);
-  this->u = string_to_byteblock(u);
-  std::string v;
-  n += get_string(&v, data, n);
-  this->v = string_to_byteblock(v);
+  std::string uv;
+  n += get_string(&uv, data, n);
+  this->uv = string_to_byteblock(uv);
   std::string d;
   n += get_string(&d, data, n);
   this->d = string_to_byteblock(d);

@@ -145,10 +145,8 @@ CryptoPP::SecByteBlock GGHDriver::msg_to_byteblock(Mat v, size_t nbytes) {
 }
 
 CryptoPP::SecByteBlock GGHDriver::copy_to_block(Mat M) {
-  std::cout << "making block" << std::endl;
   CryptoPP::SecByteBlock block(M.rows()*GGH_N*sizeof(long double));
   memcpy(block.BytePtr(), M.data(), M.rows()*GGH_N*sizeof(long double));
-  std::cout << "made block" << std::endl;
   return block;
 }
 Mat GGHDriver::copy_to_mat(CryptoPP::SecByteBlock block) {

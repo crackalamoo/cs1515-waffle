@@ -233,6 +233,7 @@ SecByteBlock CryptoDriver::GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::opt
   if (r.has_value()) {
     r_v = std::optional<Mat>{ggh.byteblock_to_msg(r.value())};
   } else {
+    std::cout << "using no value for r!!!!!!!!!!" << std::endl;
     r_v = std::optional<Mat>{};
   }
   Mat e = ggh.encrypt(pk_m, m_v, r_v);
@@ -270,53 +271,73 @@ void CryptoDriver::split_hash_three(std::string h, SecByteBlock &i1, SecByteBloc
   i2 = string_to_byteblock(h.substr(sublen*2, sublen*3));
 }
 
-std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock>
+std::pair<std::tuple<SecByteBlock, SecByteBlock>, SecByteBlock>
 CryptoDriver::encaps(SecByteBlock pk) {
   AutoSeededRandomPool rng;
   SecByteBlock m_bytes(256/8); // 256 bits
   rng.GenerateBlock(m_bytes, m_bytes.size());
   std::string m_str = byteblock_to_string(m_bytes);
+  std::cout << "encaps m " << m_str << std::endl;
+  std::cout << "encaps m size " << m_bytes.size() << std::endl;
   std::string pk_str = byteblock_to_string(pk);
+  std::cout << "encaps pk_str " << pk_str << std::endl;
   std::string Khrd = hash(pk_str + m_str); // 256 bits
   SecByteBlock K_hat;
   SecByteBlock r;
   SecByteBlock d;
   split_hash_three(Khrd, K_hat, r, d);
+  std::cout << "encaps Khrd " << Khrd << std::endl;
+  std::cout << "encaps Kh " << byteblock_to_string(K_hat) << std::endl;
+  std::cout << "encaps r " << byteblock_to_string(r) << std::endl;
+  std::cout << "encaps d " << byteblock_to_string(d) << std::endl;
   std::string K_hat_str = byteblock_to_string(K_hat);
-  auto uv = EG_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
-  auto c = std::make_tuple(uv.first, uv.second, d);
+  auto uv = GGH_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
+  std::cout << "encaps uv " << byteblock_to_string(uv) << std::endl;
+  uv = GGH_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
+  std::cout << "encaps uv2" << byteblock_to_string(uv) << std::endl;
+  auto c = std::make_tuple(uv, d);
   std::string c_str = byteblock_to_string(std::get<0>(c)) +
-                        byteblock_to_string(std::get<1>(c)) +
-                        byteblock_to_string(std::get<2>(c));
+                      byteblock_to_string(std::get<1>(c));
+  std::cout << "encaps c_str " << c_str << std::endl;
   std::string K_str = hash(K_hat_str + c_str);
   SecByteBlock K = string_to_byteblock(K_str);
   return std::make_pair(c, K);
 }
 
-SecByteBlock CryptoDriver::decaps(SecByteBlock sk, SecByteBlock pk,
-                                  std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c) {
-  SecByteBlock m_bytes = EG_decrypt(
-    sk, std::make_pair(std::get<0>(c), std::get<1>(c)) );
+SecByteBlock CryptoDriver::decaps(Mat sk, Mat pk,
+                                  std::tuple<SecByteBlock, SecByteBlock> c) {
+  SecByteBlock m_bytes = GGH_decrypt(sk, pk, std::get<0>(c));
+  GGHDriver ggh;
+  SecByteBlock pkb = ggh.copy_to_block(pk);
   std::string m_str = byteblock_to_string(m_bytes);
-  std::string pk_str = byteblock_to_string(pk);
+  std::cout << "decaps m " << m_str << std::endl;
+  std::cout << "decaps m size " << m_bytes.size() << std::endl;
+  std::string pk_str = byteblock_to_string(pkb);
+  std::cout << "decaps pk_str " << pk_str << std::endl;
   std::string Khrd = hash(pk_str + m_str); // 256 bits
   SecByteBlock K_hat;
   SecByteBlock r;
   SecByteBlock d;
   split_hash_three(Khrd, K_hat, r, d);
+  std::cout << "decaps Khrd " << Khrd << std::endl;
+  std::cout << "decaps Kh " << byteblock_to_string(K_hat) << std::endl;
+  std::cout << "decaps r " << byteblock_to_string(r) << std::endl;
+  std::cout << "decaps d " << byteblock_to_string(d) << std::endl;
   std::string K_hat_str = byteblock_to_string(K_hat);
-  auto uv = EG_encrypt(pk, m_bytes, std::optional<SecByteBlock>{r});
-  SecByteBlock u = uv.first;
-  SecByteBlock v = uv.second;
+  auto uv = GGH_encrypt(pkb, m_bytes, std::optional<SecByteBlock>{r});
+  std::cout << "decaps uv " << byteblock_to_string(uv) << std::endl;
+  uv = GGH_encrypt(pkb, m_bytes, std::optional<SecByteBlock>{r});
+  std::cout << "decaps uv2" << byteblock_to_string(uv) << std::endl;
   std::string c_str = byteblock_to_string(std::get<0>(c)) +
-                      byteblock_to_string(std::get<1>(c)) +
-                      byteblock_to_string(std::get<2>(c));
+                      byteblock_to_string(std::get<1>(c));
+  std::cout << "decaps c_str " << c_str << std::endl;
   std::string K_str;
-  if (u == std::get<0>(c) && v == std::get<1>(c) && d == std::get<2>(c)) {
+  if (uv == std::get<0>(c) && d == std::get<1>(c)) {
     K_str = hash(K_hat_str + c_str);
   } else {
+    std::cout << "making random seed!!!!!!!!!" << std::endl;
     // z is a random secret seed
-    std::string z_str = byteblock_to_string(sk);
+    std::string z_str = byteblock_to_string(ggh.copy_to_block(sk));
     // return pseudo-random key
     K_str = hash(z_str + c_str);
   }

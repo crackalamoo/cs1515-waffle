@@ -47,8 +47,7 @@ public:
 
   std::string hash(std::string msg);
   void split_hash_three(std::string h, SecByteBlock &i1, SecByteBlock &i2, SecByteBlock &i3);
-  std::pair<std::tuple<SecByteBlock, SecByteBlock, SecByteBlock>, SecByteBlock>
+  std::pair<std::tuple<SecByteBlock, SecByteBlock>, SecByteBlock>
   encaps(SecByteBlock pk);
-  SecByteBlock decaps(SecByteBlock sk, SecByteBlock pk,
-                      std::tuple<SecByteBlock, SecByteBlock, SecByteBlock> c);
+  SecByteBlock decaps(Mat sk, Mat pk, std::tuple<SecByteBlock, SecByteBlock> c);
 };

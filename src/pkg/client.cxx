@@ -105,12 +105,13 @@ void Client::HandleKeyExchange(std::string command) {
 
   if (command == "connect") {
     // P1
-    auto keys = this->crypto_driver->EG_generate();
+    auto keys = this->crypto_driver->GGH_generate();
     auto sk = keys.first;
     auto pk = keys.second;
 
+    GGHDriver ggh;
     PublicValue_Message pvm;
-    pvm.public_value = pk;
+    pvm.public_value = ggh.copy_to_block(pk);
     std::vector<unsigned char> pkey_to_send;
     pvm.serialize(pkey_to_send);
 
@@ -122,9 +123,11 @@ void Client::HandleKeyExchange(std::string command) {
     std::vector<unsigned char> c_to_get = this->network_driver->read();
     em.deserialize(c_to_get);
 
-    auto c = std::make_tuple(em.u, em.v, em.d);
+    auto c = std::make_tuple(em.uv, em.d);
+    std::cout << "P1 uv " << byteblock_to_string(std::get<0>(c)) << std::endl;
     auto K = this->crypto_driver->decaps(sk, pk, c);
 
+    std::cout << "P1 K " << byteblock_to_string(K) << std::endl;
     this->prepare_keys(K);
   } else if (command == "listen") {
     // P2
@@ -135,16 +138,17 @@ void Client::HandleKeyExchange(std::string command) {
     auto encaps = this->crypto_driver->encaps(pvm.public_value);
     auto c = encaps.first;
     auto K = encaps.second;
+    std::cout << "P2 uv " << byteblock_to_string(std::get<0>(c)) << std::endl;
 
     Encapsulation_Message em;
-    em.u = std::get<0>(c);
-    em.v = std::get<1>(c);
-    em.d = std::get<2>(c);
+    em.uv = std::get<0>(c);
+    em.d = std::get<1>(c);
     std::vector<unsigned char> c_to_send;
     em.serialize(c_to_send);
 
     this->network_driver->send(c_to_send);
 
+    std::cout << "P2 K " << byteblock_to_string(K) << std::endl;
     this->prepare_keys(K);
   }
 }

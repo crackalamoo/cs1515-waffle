@@ -84,9 +84,8 @@ struct Message_Message : public Serializable {
  */
 
 struct Encapsulation_Message : public Serializable {
-  // c is a tuple containing (u, v, d)
-  CryptoPP::SecByteBlock u;
-  CryptoPP::SecByteBlock v;
+  // In Kyber, c is a tuple containing (u, v, d)
+  CryptoPP::SecByteBlock uv;
   CryptoPP::SecByteBlock d;
 
   void serialize(std::vector<unsigned char> &data);

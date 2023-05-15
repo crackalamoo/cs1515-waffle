@@ -175,55 +175,18 @@ bool CryptoDriver::HMAC_verify(SecByteBlock key, std::string ciphertext,
   }
 }
 
-/*
- * With public key pk, encrypt m.
- */
-std::pair<SecByteBlock, SecByteBlock>
-CryptoDriver::EG_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> rand) {
-  Integer y;
-  if (rand.has_value()) {
-    y = byteblock_to_integer(rand.value());
-  } else {
-    AutoSeededRandomPool rng;
-    y = Integer(rng, Integer::One(), DL_P);
-  }
-  SecByteBlock c1 = integer_to_byteblock(a_exp_b_mod_c(DL_G, y, DL_P));
-  SecByteBlock c2 = integer_to_byteblock(byteblock_to_integer(m) * a_exp_b_mod_c(byteblock_to_integer(pk), y, DL_P));
-  return std::make_pair(c1, c2);
-}
-
-/*
- * With private key sk, decrypt (c1, c2)
- */
-SecByteBlock CryptoDriver::EG_decrypt(SecByteBlock sk, std::pair<SecByteBlock, SecByteBlock> c) {
-  Integer m;
-  Integer sk_int = byteblock_to_integer(sk);
-  Integer c1 = byteblock_to_integer(c.first);
-  Integer c2 = byteblock_to_integer(c.second);
-  m = (c2 * EuclideanMultiplicativeInverse(a_exp_b_mod_c(c1, sk_int, DL_P), DL_P)) % DL_P;
-  return integer_to_byteblock(m);
-}
-
 /**
- * @brief Generates a pair of El Gamal keys. This function should:
- * 1) Generate a random `a` value using an CryptoPP::AutoSeededRandomPool
- * 2) Exponentiate the base DL_G to get the public value, 
- *    then return (private key, public key)
+ * @brief generate GGH public and private keys
  */
-std::pair<SecByteBlock, SecByteBlock> CryptoDriver::EG_generate() {
-  AutoSeededRandomPool rng;
-  Integer sk_int = Integer(rng, Integer::Zero(), DL_P - 1);
-  SecByteBlock sk = integer_to_byteblock(sk_int);
-  SecByteBlock pk = integer_to_byteblock(a_exp_b_mod_c(DL_G, sk_int, DL_P));
-  return std::make_pair(sk, pk);
-}
-
 std::pair<Mat, Mat> CryptoDriver::GGH_generate() {
   GGHDriver ggh;
   std::pair<Mat, Mat> keys = ggh.generate();
   return keys;
 }
 
+/**
+ * @brief encrypt a message using GGH
+ */
 SecByteBlock CryptoDriver::GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> r) {
   // use SecByteBlocks here because the pk, m, and r might come from the other party
   GGHDriver ggh;
@@ -239,6 +202,9 @@ SecByteBlock CryptoDriver::GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::opt
   return ggh.copy_to_block(e);
 }
 
+/**
+ * @brief decrypt a ciphertext using GGH
+ */
 SecByteBlock CryptoDriver::GGH_decrypt(Mat sk, Mat pk, SecByteBlock e) {
   // use Mats here because we generated the keys locally, but e came from the other party
   GGHDriver ggh;

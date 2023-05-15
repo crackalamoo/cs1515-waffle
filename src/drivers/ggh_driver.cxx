@@ -28,7 +28,7 @@ double GGHDriver::hadamard_ratio(Mat M) {
 Mat GGHDriver::gen_V() {
   Mat V = gen_random(GGH_N, GGH_N, GGH_D);
   double h = hadamard_ratio(V);
-  if (h < 0.72) {
+  if (h < 0.75) {
     return gen_V();
   }
   return V;
@@ -37,7 +37,7 @@ Mat GGHDriver::gen_V() {
 Mat GGHDriver::gen_U() {
   CryptoPP::AutoSeededRandomPool rng;
   Mat U = Mat::Identity(GGH_N, GGH_N);
-  for (int r = 0; r < 55; r++) {
+  for (int r = 0; r < 50; r++) {
     CryptoPP::Integer to(rng, 0, GGH_N-1);
     long k = to.ConvertToLong();
     CryptoPP::Integer from(rng, 0, GGH_N-1);

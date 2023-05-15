@@ -36,11 +36,6 @@ public:
   std::string HMAC_generate(SecByteBlock key, std::string ciphertext);
   bool HMAC_verify(SecByteBlock key, std::string ciphertext, std::string hmac);
 
-  std::pair<SecByteBlock, SecByteBlock> EG_generate();
-  std::pair<SecByteBlock, SecByteBlock>
-  EG_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> rand);
-  SecByteBlock EG_decrypt(SecByteBlock sk, std::pair<SecByteBlock, SecByteBlock> c);
-
   std::pair<Mat, Mat> GGH_generate();
   SecByteBlock GGH_encrypt(SecByteBlock pk, SecByteBlock m, std::optional<SecByteBlock> r);
   SecByteBlock GGH_decrypt(Mat sk, Mat pk, SecByteBlock e);

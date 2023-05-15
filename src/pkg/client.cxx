@@ -12,7 +12,6 @@
 
 #include "../../include-shared/util.hpp"
 #include "colors.hpp"
-#include "../../include/drivers/ggh_driver.hpp"
 
 /**
  * Constructor. Sets up TCP socket and starts REPL

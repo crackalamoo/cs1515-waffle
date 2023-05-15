@@ -28,7 +28,7 @@ double GGHDriver::hadamard_ratio(Mat M) {
 Mat GGHDriver::gen_V() {
   Mat V = gen_random(GGH_N, GGH_N, GGH_D);
   double h = hadamard_ratio(V);
-  if (h < 0.82) {
+  if (h < 0.75) {
     return gen_V();
   }
   return V;
@@ -37,7 +37,7 @@ Mat GGHDriver::gen_V() {
 Mat GGHDriver::gen_U() {
   CryptoPP::AutoSeededRandomPool rng;
   Mat U = Mat::Identity(GGH_N, GGH_N);
-  for (int r = 0; r < 50; r++) {
+  for (int r = 0; r < 55; r++) {
     CryptoPP::Integer to(rng, 0, GGH_N-1);
     long k = to.ConvertToLong();
     CryptoPP::Integer from(rng, 0, GGH_N-1);
@@ -103,13 +103,49 @@ Mat GGHDriver::GGH_decrypt(Mat sk, Mat pk, Mat e) {
   return m;
 }
 
+Mat GGHDriver::byteblock_to_ggh(CryptoPP::SecByteBlock block) {
+  Mat res = Mat::Zero(1, GGH_N);
+  size_t nbytes = block.SizeInBytes();
+  std::byte bytes[nbytes];
+  memcpy(bytes, block.BytePtr(), nbytes);
+  int bytes_per_val = std::ceil((double)nbytes/GGH_N);
+  for (int i = 0; i < nbytes; i += bytes_per_val) {
+    int val = 0;
+    memcpy(&val, bytes+i, bytes_per_val);
+    res(0, i/bytes_per_val) = val;
+  }
+  return res;
+}
+
+CryptoPP::SecByteBlock GGHDriver::ggh_to_byteblock(Mat m, size_t nbytes) {
+  std::byte bytes[nbytes];
+  int bytes_per_val = std::ceil((double)nbytes/GGH_N);
+  for (int i = 0; i < GGH_N; i++) {
+    int val = m(0, i);
+    memcpy(bytes + i*bytes_per_val, &val, bytes_per_val);
+  }
+  const unsigned char* ptr = (const unsigned char*)bytes;
+  CryptoPP::SecByteBlock block(nbytes);
+  block.Assign(ptr, nbytes);
+  return block;
+}
+
 void eigentest() {
   GGHDriver gghd;
   std::pair<Mat, Mat> keys = gghd.GGH_generate();
   Mat U = gghd.gen_U();
   std::cout << "U " << U << std::endl;
   std::cout << "det " << U.determinant() << std::endl;
-  Mat m = gghd.gen_random(1, GGH_N, 100);
+  CryptoPP::Integer hi = 75834798160257;
+  CryptoPP::SecByteBlock block(256/8);
+  CryptoPP::AutoSeededRandomPool rng;
+  rng.GenerateBlock(block, block.size());
+  std::string bstr = std::string(block.begin(), block.end());
+  std::cout << bstr << std::endl;
+  std::cout << gghd.byteblock_to_ggh(block) << std::endl;
+  //Mat m = gghd.gen_random(1, GGH_N, 2147483648);
+  Mat m = gghd.byteblock_to_ggh(block);
+  std::cout << byteblock_to_string(gghd.ggh_to_byteblock(m, block.size())) << std::endl;
   Mat r = gghd.gen_random(1, GGH_N, GGH_DELTA);
   Mat r2 = Mat::Zero(1, GGH_N);
   std::cout << "r " << r << std::endl;

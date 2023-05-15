@@ -5,9 +5,6 @@
 
 #define EG_KEYSIZE 1024
 
-#define GGH_N 8
-#define GGH_D 200
-#define GGH_DELTA 5
 
 // Primes from https://www.rfc-editor.org/rfc/rfc5114#page-4
 const CryptoPP::Integer DL_P =

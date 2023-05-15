@@ -8,6 +8,8 @@
 #include <crypto++/cryptlib.h>
 #include <crypto++/integer.h>
 
+#include "../include/drivers/ggh_driver.hpp"
+
 // ================================================
 // MESSAGE TYPES
 // ================================================

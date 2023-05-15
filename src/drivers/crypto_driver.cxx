@@ -218,6 +218,12 @@ std::pair<SecByteBlock, SecByteBlock> CryptoDriver::EG_generate() {
   return std::make_pair(sk, pk);
 }
 
+std::pair<Mat, Mat> CryptoDriver::GGH_generate() {
+  GGHDriver ggh;
+  std::pair<Mat, Mat> keys = ggh.GGH_generate();
+  return keys;
+}
+
 /**
  * @brief Generates a SHA-256 hash of msg.
  */

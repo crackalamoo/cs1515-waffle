@@ -124,10 +124,9 @@ void Client::HandleKeyExchange(std::string command) {
     em.deserialize(c_to_get);
 
     auto c = std::make_tuple(em.uv, em.d);
-    std::cout << "P1 uv " << byteblock_to_string(std::get<0>(c)) << std::endl;
     auto K = this->crypto_driver->decaps(sk, pk, c);
 
-    std::cout << "P1 K " << byteblock_to_string(K) << std::endl;
+    //std::cout << "P1 K " << byteblock_to_string(K) << std::endl;
     this->prepare_keys(K);
   } else if (command == "listen") {
     // P2
@@ -138,7 +137,6 @@ void Client::HandleKeyExchange(std::string command) {
     auto encaps = this->crypto_driver->encaps(pvm.public_value);
     auto c = encaps.first;
     auto K = encaps.second;
-    std::cout << "P2 uv " << byteblock_to_string(std::get<0>(c)) << std::endl;
 
     Encapsulation_Message em;
     em.uv = std::get<0>(c);
@@ -148,7 +146,7 @@ void Client::HandleKeyExchange(std::string command) {
 
     this->network_driver->send(c_to_send);
 
-    std::cout << "P2 K " << byteblock_to_string(K) << std::endl;
+    //std::cout << "P2 K " << byteblock_to_string(K) << std::endl;
     this->prepare_keys(K);
   }
 }
